@@ -127,20 +127,18 @@ def insert_into_db(alert, gh_org, gh_repo):
         print("Error when inserting into table: ", error)
         print("DEBUG: ", str(alert))
 
-def get_repos(host, gh_token):
-    g = Github(base_url=host + "/api/v3", login_or_token=gh_token)
-    repos = []
 
-    # Add orgs that you need to ignore
-    blacklisted_orgs = ['test-org']
+# Get a list of the full_name of all my github repos using the github library
+def get_repos(gh_token, gh_org):
+    g = Github(gh_token)
+    org = g.get_organization(gh_org)
+    repos = org.get_repos()
+    repo_list = []
+    for repo in repos:
+        repo_list.append(repo.full_name)
+    return repo_list
 
-    for org in g.get_organizations():
-        if org.login not in blacklisted_orgs:
-            for repo in org.get_repos():
-                if not repo.archived:
-                    repos.append(repo.full_name)
 
-    return repos
 
 
 def get_alerts(host, gh_token, gh_org, gh_repo):
@@ -151,7 +149,7 @@ def get_alerts(host, gh_token, gh_org, gh_repo):
     }
 
     # Select your transport with a defined url endpoint
-    transport = AIOHTTPTransport(url=host+"/api/graphql", headers=headers)
+    transport = AIOHTTPTransport(url=host+"/graphql", headers=headers)
     # Create a GraphQL client using the defined transport
     client = Client(transport=transport, fetch_schema_from_transport=True)
 
@@ -264,7 +262,7 @@ def get_alerts(host, gh_token, gh_org, gh_repo):
 
 
 initialize_db()
-repos = get_repos(host=host, gh_token=gh_token)
+repos = get_repos(gh_token=gh_token, gh_org="fsa-streamotion")
 
 for repo in repos:
     print("[+] Analyzing " + repo)
