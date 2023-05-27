@@ -261,12 +261,16 @@ def get_alerts(host, gh_token, gh_org, gh_repo):
     return []
 
 
-initialize_db()
-repos = get_repos(gh_token=gh_token, gh_org="fsa-streamotion")
+def main():
+    initialize_db()
+    repos = get_repos(gh_token=gh_token, gh_org="fsa-streamotion")
 
-for repo in repos:
-    print("[+] Analyzing " + repo)
-    org = repo.split("/")[0]
-    repo_name = repo.split("/")[1]
+    for repo in repos:
+        print("[+] Analyzing " + repo)
+        org = repo.split("/")[0]
+        repo_name = repo.split("/")[1]
 
-    get_alerts(host, gh_token, org, repo_name)
+        get_alerts(host, gh_token, org, repo_name)
+
+if __name__ == "__main__":
+    main()
