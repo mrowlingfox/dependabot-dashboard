@@ -9,18 +9,19 @@ import psycopg2
 from datetime import date, datetime
 import os
 
-db_user = os.environ["DB_USER"]
-db_password = os.environ["DB_PASSWORD"]
-db_host = os.environ["DB_HOST"]
-host = os.environ["GH_HOST"]
-gh_token = os.environ["GH_TOKEN"]
+DB_USER = os.environ["DB_USER"]
+DB_PASSWORD = os.environ["DB_PASSWORD"]
+DH_HOST = os.environ["DB_HOST"]
+HOST = os.environ["GH_HOST"]
+GH_TOKEN = os.environ["GH_TOKEN"]
+GH_ORG = os.environ.get("GH_ORG", "fsa-streamotion")
 LOCAL_CACHE = os.environ.get("LOCAL_CACHE") # Set to True to use local cache, helpful for local debugging
 
 TABLE_NAME = "dependabot_alerts_mrowling"
 
-connection = psycopg2.connect(user=db_user,
-                                      password=db_password,
-                                      host=db_host,
+connection = psycopg2.connect(user=DB_USER,
+                                      password=DB_PASSWORD,
+                                      host=DH_HOST,
                                       port="5432",
                                       database="dependabot")
 
@@ -293,7 +294,7 @@ def get_alerts(host, gh_token, gh_org, gh_repo):
 def process_repo(gh_org, repo):
     org = repo.split("/")[0]
     repo_name = repo.split("/")[1]
-    alerts = get_alerts(host, gh_token, org, repo_name)
+    alerts = get_alerts(HOST, GH_TOKEN, org, repo_name)
     snapshot_date = date.today()
     print(f"[+] Processing {repo_name}")
     print(f"[+] Found {len(alerts)} alerts")
@@ -304,11 +305,10 @@ def process_repo(gh_org, repo):
 
 def main():
     initialize_db()
-    gh_org = "fsa-streamotion"
-    repos = get_repos(gh_token=gh_token, gh_org=gh_org)
+    repos = get_repos(gh_token=GH_TOKEN, gh_org=GH_ORG)
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
-        executor.map(process_repo, [gh_org] * len(repos), repos)
+        executor.map(process_repo, [GH_ORG] * len(repos), repos)
 
 if __name__ == "__main__":
     main()
