@@ -19,9 +19,6 @@ LOCAL_CACHE = os.environ.get("LOCAL_CACHE") # Set to True to use local cache, he
 TABLE_NAME = os.environ.get("TABLE_NAME", "dependabot_alerts")
 
 
-
-
-# create file if not exists, suuport creating directories too. Write empty json object to contents
 def create_file_if_not_exists(file_path):
     if not os.path.exists(os.path.dirname(file_path)):
         os.makedirs(os.path.dirname(file_path))
@@ -30,9 +27,6 @@ def create_file_if_not_exists(file_path):
             json.dump({}, file)
 
 
-# Function to use as a decorator to memoize and cache on disk. Supports multiple arguments.\
-# Create the cache file if it doesn't exist
-# Use pickle to serialize the result
 def memoize_and_cache_on_disk(cache_file):
     create_file_if_not_exists(cache_file)
     def memoize_and_cache_on_disk_decorator(func):
@@ -141,11 +135,6 @@ def parse_alert(alert, gh_org, gh_repo, snapshot_date):
     
     return db_values
 
-# This function is used to insert multiple records into the dependabot_alerts table
-# it will accept a list of tuples, each tuple is a record to be inserted
-# the tuples must be in the same order as the columns in the table
-# The columns are:
-# snapshot, gh_repo, gh_org, created_at, fixed_at, alert_number, state, dismissed_at, dismiss_reason, dismisser, vuln_ghsa_id, vuln_severity, vuln_summary, vuln_package, fix_pr_number, fix_pr_title, fix_merged_at
 def bulk_insert_into_db(db_connection, db_values):
     try:
         insert_query = f"""
@@ -176,7 +165,6 @@ def bulk_insert_into_db(db_connection, db_values):
     except (Exception, psycopg2.Error) as error:
         print("Failed to insert records into dependabot_alerts table: ", error)
 
-# Get a list of the full_name of all my github repos using the github library
 @memoize_and_cache_on_disk(cache_file="cache/get_repos.cache")
 def get_repos(gh_token, gh_org):
     print("Getting repos for: " + gh_org)
@@ -187,12 +175,6 @@ def get_repos(gh_token, gh_org):
 
 def concatenate_lists(list1, list2):
     return list1 + list2
-
-def add_to_array(arr1, arr2):
-    for i in arr2:
-        if i not in arr1:
-            arr1.append(i)
-    return arr1
 
 
 def gql_client(host, gh_token):
@@ -258,8 +240,6 @@ def build_query(gh_repo, gh_org, first=100, after=None):
 def execute_with_retry(client, query):
     return client.execute(query)
 
-# Query will accept first and after as variables
-# After querying the first 100, it will query the next 100 using the endCursor
 def execute_gql_query_with_paging(client, gh_repo, gh_org, first, after=None):
     query = build_query(gh_repo, gh_org, first, after)
     result = execute_with_retry(client, query)
