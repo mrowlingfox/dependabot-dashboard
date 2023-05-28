@@ -179,38 +179,6 @@ def bulk_insert_into_db(db_values):
     except (Exception, psycopg2.Error) as error:
         print("Failed to insert records into dependabot_alerts table: ", error)
 
-def insert_into_db(db_values):
-    try:
-        insert_query = """
-            insert into dependabot_alerts (
-                snapshot,
-                gh_repo,
-                gh_org,
-                created_at,
-                fixed_at,
-                alert_number,
-                state,
-                dismissed_at,
-                dismiss_reason,
-                dismisser,
-                vuln_ghsa_id,
-                vuln_severity,
-                vuln_summary,
-                vuln_package,
-                fix_pr_number,
-                fix_pr_title,
-                fix_merged_at
-            ) values (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s);
-        """
-
-        cursor = connection.cursor()
-        cursor.execute(insert_query, db_values)
-        connection.commit()
-    except (Exception, psycopg2.Error) as error:
-        print("Error when inserting into table: ", error)
-        print("DEBUG: ", str(db_values))
-
-
 # Get a list of the full_name of all my github repos using the github library
 @memoize_and_cache_on_disk(cache_file="cache/get_repos.cache")
 def get_repos(gh_token, gh_org):
