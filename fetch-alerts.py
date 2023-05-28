@@ -11,6 +11,7 @@ db_password = os.environ["DB_PASSWORD"]
 db_host = os.environ["DB_HOST"]
 host = os.environ["GH_HOST"]
 gh_token = os.environ["GH_TOKEN"]
+LOCAL_CACHE = os.environ["LOCAL_CACHE"] or False
 
 TABLE_NAME = "dependabot_alerts_mrowling"
 
@@ -37,6 +38,8 @@ def memoize_and_cache_on_disk(cache_file):
     create_file_if_not_exists(cache_file)
     def memoize_and_cache_on_disk_decorator(func):
         def memoize_and_cache_on_disk_wrapper(*args, **kwargs):
+            if not LOCAL_CACHE:
+                return func(*args, **kwargs)
             try:
                 with open(cache_file, 'rb') as cache:
                     cache_dict = json.load(cache)
