@@ -16,8 +16,8 @@ HOST = os.environ["GH_HOST"]
 GH_TOKEN = os.environ["GH_TOKEN"]
 GH_ORG = os.environ.get("GH_ORG", "fsa-streamotion")
 LOCAL_CACHE = os.environ.get("LOCAL_CACHE") # Set to True to use local cache, helpful for local debugging
+TABLE_NAME = os.environ.get("TABLE_NAME", "dependabot_alerts")
 
-TABLE_NAME = "dependabot_alerts_mrowling"
 
 
 
