@@ -1,7 +1,9 @@
 from gql import gql, Client
 from gql.transport.aiohttp import AIOHTTPTransport
+from retry import retry
 import json
 from github import Github
+from github.GithubException import RateLimitExceededException
 import psycopg2
 from datetime import date, datetime
 import os
@@ -93,7 +95,7 @@ def initialize_db():
         connection.commit()
         count = cursor.rowcount
     except (Exception, psycopg2.Error) as error:
-        print("Failed to initialize dependabot_alerts table: ", error)
+        print(f"Failed to initialize {TABLE_NAME} table: ", error)
 
 def parse_alert(alert, gh_org, gh_repo):
     snapshot_date = date.today()
@@ -257,11 +259,15 @@ def build_query(gh_repo, gh_org, first=100, after=None):
     """
     return gql(query)
 
+@retry(backoff=2, tries=5)
+def execute_with_retry(client, query):
+    return client.execute(query)
+
 # Query will accept first and after as variables
 # After querying the first 100, it will query the next 100 using the endCursor
 def execute_gql_query_with_paging(client, gh_repo, gh_org, first, after=None):
     query = build_query(gh_repo, gh_org, first, after)
-    result = client.execute(query)
+    result = execute_with_retry(client, query)
     alerts = result.get("repository").get("vulnerabilityAlerts").get("nodes")
 
     has_next_page = result.get("repository").get("vulnerabilityAlerts").get("pageInfo").get("hasNextPage")
@@ -275,6 +281,7 @@ def execute_gql_query_with_paging(client, gh_repo, gh_org, first, after=None):
 
 
 @memoize_and_cache_on_disk(cache_file="cache/get_alerts.cache")
+@retry(RateLimitExceededException, backoff=2, tries=5)
 def get_alerts(host, gh_token, gh_org, gh_repo):
     # Handle pagination
     client = gql_client(host, gh_token)
