@@ -2,6 +2,7 @@ from gql import gql, Client
 from gql.transport.aiohttp import AIOHTTPTransport
 from retry import retry
 import json
+import concurrent.futures
 from github import Github
 from github.GithubException import RateLimitExceededException
 import psycopg2
@@ -13,7 +14,7 @@ db_password = os.environ["DB_PASSWORD"]
 db_host = os.environ["DB_HOST"]
 host = os.environ["GH_HOST"]
 gh_token = os.environ["GH_TOKEN"]
-LOCAL_CACHE = os.environ["LOCAL_CACHE"] or False
+LOCAL_CACHE = os.environ.get("LOCAL_CACHE") # Set to True to use local cache, helpful for local debugging
 
 TABLE_NAME = "dependabot_alerts_mrowling"
 
@@ -290,26 +291,24 @@ def get_alerts(host, gh_token, gh_org, gh_repo):
 
     return alerts
 
+def process_repo(gh_org, repo):
+    org = repo.split("/")[0]
+    repo_name = repo.split("/")[1]
+    alerts = get_alerts(host, gh_token, org, repo_name)
+    print(f"[+] Processing {repo_name}")
+    print(f"[+] Found {len(alerts)} alerts")
+    if alerts:
+        print(f"[+] Inserting into database")
+        database_inserts = [ parse_alert(alert, gh_org, repo_name) for alert in alerts]
+        bulk_insert_into_db(database_inserts)
+
 def main():
     initialize_db()
     gh_org = "fsa-streamotion"
     repos = get_repos(gh_token=gh_token, gh_org=gh_org)
 
-    for repo in repos:
-        print(f"[+] Analyzing {repo}")
-        org = repo.split("/")[0]
-        repo_name = repo.split("/")[1]
-
-        alerts = get_alerts(host, gh_token, org, repo_name)
-        print(f"[+] Found {len(alerts)} alerts")
-        # print(f"{alerts}")
-        print(f"[+] Inserting into database")
-        database_inserts = [ parse_alert(alert, gh_org, repo_name) for alert in alerts]
-        bulk_insert_into_db(database_inserts)
-        # for alert in alerts:
-        #     data = parse_alert(alert, gh_org, repo_name)
-        #     insert_into_db(data)
-
+    with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
+        executor.map(process_repo, [gh_org] * len(repos), repos)
 
 if __name__ == "__main__":
     main()
