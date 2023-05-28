@@ -98,8 +98,7 @@ def initialize_db():
     except (Exception, psycopg2.Error) as error:
         print(f"Failed to initialize {TABLE_NAME} table: ", error)
 
-def parse_alert(alert, gh_org, gh_repo):
-    snapshot_date = date.today()
+def parse_alert(alert, gh_org, gh_repo, snapshot_date):
     snapshot_timestamp = datetime.strptime(
             str(snapshot_date), "%Y-%m-%d").strftime("%Y-%m-%dT00:00:00Z")
     repo = gh_org + "/" + gh_repo
@@ -295,11 +294,12 @@ def process_repo(gh_org, repo):
     org = repo.split("/")[0]
     repo_name = repo.split("/")[1]
     alerts = get_alerts(host, gh_token, org, repo_name)
+    snapshot_date = date.today()
     print(f"[+] Processing {repo_name}")
     print(f"[+] Found {len(alerts)} alerts")
     if alerts:
         print(f"[+] Inserting into database")
-        database_inserts = [ parse_alert(alert, gh_org, repo_name) for alert in alerts]
+        database_inserts = [ parse_alert(alert, gh_org, repo_name, snapshot_date) for alert in alerts]
         bulk_insert_into_db(database_inserts)
 
 def main():
