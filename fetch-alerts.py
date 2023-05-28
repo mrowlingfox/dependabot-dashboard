@@ -19,11 +19,6 @@ LOCAL_CACHE = os.environ.get("LOCAL_CACHE") # Set to True to use local cache, he
 
 TABLE_NAME = "dependabot_alerts_mrowling"
 
-connection = psycopg2.connect(user=DB_USER,
-                                      password=DB_PASSWORD,
-                                      host=DH_HOST,
-                                      port="5432",
-                                      database="dependabot")
 
 
 # create file if not exists, suuport creating directories too. Write empty json object to contents
@@ -66,10 +61,10 @@ def memoize_and_cache_on_disk(cache_file):
         return memoize_and_cache_on_disk_wrapper
     return memoize_and_cache_on_disk_decorator
 
-def initialize_db():
+def initialize_db(db_connection):
     print("Init DB")
     try:
-        cursor = connection.cursor()
+        cursor = db_connection.cursor()
 
         postgres_create_table = f""" 
             create table if not exists {TABLE_NAME} (
@@ -94,8 +89,7 @@ def initialize_db():
             """
         cursor.execute(postgres_create_table)
 
-        connection.commit()
-        count = cursor.rowcount
+        db_connection.commit()
     except (Exception, psycopg2.Error) as error:
         print(f"Failed to initialize {TABLE_NAME} table: ", error)
 
@@ -152,7 +146,7 @@ def parse_alert(alert, gh_org, gh_repo, snapshot_date):
 # the tuples must be in the same order as the columns in the table
 # The columns are:
 # snapshot, gh_repo, gh_org, created_at, fixed_at, alert_number, state, dismissed_at, dismiss_reason, dismisser, vuln_ghsa_id, vuln_severity, vuln_summary, vuln_package, fix_pr_number, fix_pr_title, fix_merged_at
-def bulk_insert_into_db(db_values):
+def bulk_insert_into_db(db_connection, db_values):
     try:
         insert_query = f"""
             insert into {TABLE_NAME} (
@@ -176,9 +170,9 @@ def bulk_insert_into_db(db_values):
             ) values (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s);
         """
 
-        cursor = connection.cursor()
+        cursor = db_connection.cursor()
         cursor.executemany(insert_query, db_values)
-        connection.commit()
+        db_connection.commit()
     except (Exception, psycopg2.Error) as error:
         print("Failed to insert records into dependabot_alerts table: ", error)
 
@@ -291,7 +285,7 @@ def get_alerts(host, gh_token, gh_org, gh_repo):
 
     return alerts
 
-def process_repo(gh_org, repo):
+def process_repo(gh_org, repo, db_connection):
     org = repo.split("/")[0]
     repo_name = repo.split("/")[1]
     alerts = get_alerts(HOST, GH_TOKEN, org, repo_name)
@@ -301,14 +295,19 @@ def process_repo(gh_org, repo):
     if alerts:
         print(f"[+] Inserting into database")
         database_inserts = [ parse_alert(alert, gh_org, repo_name, snapshot_date) for alert in alerts]
-        bulk_insert_into_db(database_inserts)
+        bulk_insert_into_db(db_connection, database_inserts)
 
 def main():
-    initialize_db()
+    db_connection = psycopg2.connect(user=DB_USER,
+                                      password=DB_PASSWORD,
+                                      host=DH_HOST,
+                                      port="5432",
+                                      database="dependabot")
+    initialize_db(db_connection)
     repos = get_repos(gh_token=GH_TOKEN, gh_org=GH_ORG)
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
-        executor.map(process_repo, [GH_ORG] * len(repos), repos)
+        executor.map(process_repo, [GH_ORG] * len(repos), repos, [db_connection] * len(repos))
 
 if __name__ == "__main__":
     main()
